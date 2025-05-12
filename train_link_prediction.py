@@ -38,12 +38,14 @@ if __name__ == "__main__":
         feat_using.append('snap_counts')
 
     data_snapshots_num = {'bitcoinalpha': 274,
-                          'bitcoinotc': 279,
+                        #   'bitcoinotc': 279,
+                          'bitcoinotc': 100,
                           'CollegeMsg': 29,
                           'reddit-body': 178,
                           'reddit-title': 178,
                           'mathoverflow': 2350,
-                          'email-Eu-core': 803}
+                        #   'email-Eu-core': 803,
+                          'email-Eu-core': 203}
 
     # get data for training, validation and testing
     node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, _, _, node_snap_counts = \
