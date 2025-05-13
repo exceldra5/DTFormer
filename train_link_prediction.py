@@ -80,22 +80,26 @@ if __name__ == "__main__":
                                                batch_size=args.batch_size, shuffle=False)
 
     val_metric_all_runs, test_metric_all_runs = [], []
-
+    
     for run in range(args.num_runs):
-
         set_random_seed(seed=run)
-
         args.seed = run
         args.save_model_name = f'{args.model_name}_seed{args.seed}'
+
+        # run_timestamp는 반복문 안에서 새로 생성해도 됩니다.
+        run_timestamp = time.strftime("%Y%m%d_%H%M%S")
+        run_log_dir = f"./logs/{args.model_name}/{args.dataset_name}-{run_timestamp}/{args.save_model_name}/"
+        run_model_dir = f"./saved_models/{args.model_name}/{args.dataset_name}-{run_timestamp}/{args.save_model_name}/"
+        run_results_dir = f"./saved_results/{args.model_name}/{args.dataset_name}-{run_timestamp}/{args.save_model_name}/"
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        os.makedirs(f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/", exist_ok=True)
+        os.makedirs(f"./logs/{args.model_name}/{args.dataset_name}-{run_timestamp}/{args.save_model_name}/", exist_ok=True)
         # create file handler that logs debug and higher level messages
         fh = logging.FileHandler(
-            f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/{str(time.time())}.log")
+            f"./logs/{args.model_name}/{args.dataset_name}-{run_timestamp}/{args.save_model_name}/{str(time.time())}.log")
         fh.setLevel(logging.DEBUG)
         # create console handler with a higher log level
         ch = logging.StreamHandler()
@@ -135,11 +139,11 @@ if __name__ == "__main__":
 
         model = convert_to_gpu(model, device=args.device)
 
-        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
-        shutil.rmtree(save_model_folder, ignore_errors=True)
-        os.makedirs(save_model_folder, exist_ok=True)
+        # save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
+        shutil.rmtree(run_model_dir, ignore_errors=True)
+        os.makedirs(run_model_dir, exist_ok=True)
 
-        early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
+        early_stopping = EarlyStopping(patience=args.patience, save_model_folder=run_model_dir,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
 
         loss_func = nn.BCELoss()
@@ -219,11 +223,17 @@ if __name__ == "__main__":
                 logger.info(
                     f'validate {metric_name}, {np.mean([val_metric[metric_name] for val_metric in val_metrics]):.4f}')
 
+            # Save checkpoint for the current epoch BEFORE early stopping check
+            epoch_model_path = os.path.join(run_model_dir, f"epoch_{epoch+1}.pkl")
+            torch.save(model.state_dict(), epoch_model_path)
+            logger.info(f"Saved model checkpoint for epoch {epoch+1} to {epoch_model_path}")
+
             # select the best model based on all the validate metrics
             val_metric_indicator = []
             for metric_name in val_metrics[0].keys():
                 val_metric_indicator.append(
                     (metric_name, np.mean([val_metric[metric_name] for val_metric in val_metrics]), True))
+            
             early_stop = early_stopping.step(val_metric_indicator, model)
 
             if early_stop:
@@ -266,9 +276,9 @@ if __name__ == "__main__":
         }
         result_json = json.dumps(result_json, indent=4)
 
-        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}"
-        os.makedirs(save_result_folder, exist_ok=True)
-        save_result_path = os.path.join(save_result_folder, f"{args.save_model_name}.json")
+        # save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}"
+        os.makedirs(run_results_dir, exist_ok=True)
+        save_result_path = os.path.join(run_results_dir, f"{args.save_model_name}.json")
 
         with open(save_result_path, 'w') as file:
             file.write(result_json)
